@@ -15,11 +15,26 @@ import { useEffect, useRef } from 'react';
  * @returns {object} - { refresh }
  */
 export function usePolling(callback, interval = 30000, enabled = true) {
-  // TODO: Implement polling logic
+  const savedCallback = useRef(callback);
+
+  useEffect(() => {
+    savedCallback.current = callback;
+  }, [callback]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    savedCallback.current();
+
+    const intervalId = setInterval(() => {
+      savedCallback.current();
+    }, interval);
+
+    return () => clearInterval(intervalId);
+  }, [interval, enabled]);
 
   const refresh = () => {
-    // TODO: Manual refresh implementation
-    callback();
+    savedCallback.current();
   };
 
   return { refresh };
