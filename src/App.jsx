@@ -7,6 +7,7 @@ import SearchBar from './components/SearchBar';
 import StatusBar from './components/StatusBar';
 import { fetchDashboardData } from './services/dashboardService';
 import { usePolling } from './hooks/usePolling';
+import { getFastestSource } from './utils/asyncPatterns';
 
 function App() {
   const [city, setCity] = useState('San Francisco');
@@ -32,15 +33,28 @@ function App() {
   const fetchAllData = async (cityName) => {
     setLoading({ weather: true, forecast: true, news: true, alerts: true });
 
-    const { data, errors } = await fetchDashboardData(cityName);
-
-    setDashboardData(prev => ({ ...prev, ...data }));
-    setErrors(errors);
-    setLoading({ weather: false, forecast: false, news: false, alerts: false });
+    await fetchDashboardData(cityName, (name, data, errorMessage) => {
+      if (errorMessage === null) {
+        setDashboardData(prev => ({ ...prev, [name]: data }));
+      }
+      setErrors(prev => ({ ...prev, [name]: errorMessage }));
+      setLoading(prev => ({ ...prev, [name]: false }));
+    });
   };
 
   useEffect(() => {
     fetchAllData(city);
+  }, [city]);
+
+  useEffect(() => {
+    const cityQuery = encodeURIComponent(city);
+    const urls = [1, 2, 3].map(
+      source => `http://localhost:3001/weather-source${source}?city=${cityQuery}`
+    );
+
+    getFastestSource(urls)
+      .then(result => console.log(result.source))
+      .catch(error => console.error('Fastest weather source failed:', error));
   }, [city]);
 
   usePolling(() => fetchAllData(city), 30000);

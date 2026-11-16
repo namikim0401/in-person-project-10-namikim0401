@@ -27,11 +27,17 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 3) {
       const response = await fetch(url, { ...fetchOptions, signal: controller.signal });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const error = new Error(`HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
       }
 
       return response;
     } catch (error) {
+      if (error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+
       if (attempt === maxRetries) {
         console.error(`Failed after ${maxRetries + 1} attempts: ${url}`);
         throw error;
@@ -169,21 +175,21 @@ export async function fetchAllParallel(requests) {
 }
 
 /**
- * TODO: Implement race pattern for fastest response
+ * Fetch multiple sources and return the first successful response.
  *
- * Requirements:
- * 1. Try multiple sources simultaneously
- * 2. Return first successful response
- * 3. Handle case where all fail
- *
- * @param {Array<string>} urls - Array of URLs to race
+ * @param {Array<string>} urls - Array of source URLs
  * @returns {Promise<any>} - First successful response
  */
 export async function getFastestSource(urls) {
-  // TODO: Implement using Promise.race
-  // For now, just try the first URL
-  const response = await fetch(urls[0]);
-  return response.json();
+  return Promise.any(
+    urls.map(async url => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    })
+  );
 }
 
 /**
